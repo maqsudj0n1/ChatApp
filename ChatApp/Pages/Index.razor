@@ -1,0 +1,56 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.SignalR.Client
+@inject NavigationManager NavigationManager
+
+<div class="row">
+    <div class="col-md-4">
+        <h2>Chat Application</h2>
+
+        <div class="form-group">
+            <label>
+                User: <input type="text" class="form-control" @bind="_userInput" />
+            </label>
+        </div>
+        <div class="form-group">
+            <label>
+                Message: <input type="text" class="form-control" @bind="_messageInput" />
+            </label>
+        </div>
+        <button @onclick="Send" disabled="@(!IsConnected)">Send</button>
+    </div>
+</div>
+
+<hr />
+<ul id="messageList">
+    @foreach(var message in _messages)
+    {
+        <li>@message</li>
+    }
+</ul>
+
+
+@code{
+    private HubConnection _hubConnection;
+    private string _userInput = "";
+    private string _messageInput = "";
+    private List<string> _messages = new List<string>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _hubConnection = new HubConnectionBuilder()
+        .WithUrl(NavigationManager.ToAbsoluteUri("/chatHub"))
+        .Build();
+        _hubConnection.On<string, string>("ReceiveMessage", async (user, message) =>
+        {
+            var encodeMsg = $"{user}:{message}";
+            _messages.Add(encodeMsg);
+            await InvokeAsync(StateHasChanged);
+        });
+        await _hubConnection.StartAsync();
+
+    }
+    Task Send() =>
+    _hubConnection.SendAsync("SendMessage", _userInput, _messageInput);
+    public bool IsConnected =>
+    _hubConnection.State == HubConnectionState.Connected;
+}
